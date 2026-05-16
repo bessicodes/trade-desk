@@ -8,6 +8,16 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#060810;--surf:#0b0d18;--card:#101422;--card2:#161c2e;--bdr:#1e2640;--bdr2:#2a3558;--t1:#dde2f0;--t2:#6e7fa0;--t3:#3d4d6e;--green:#00e090;--red:#ff4060;--blue:#4f8ef8;--amber:#f5a623;--purple:#a78bfa;--mono:'JetBrains Mono',monospace;--sans:'Outfit',sans-serif;--r:8px;--r2:12px}
+.light{--bg:#f0f3fa;--surf:#ffffff;--card:#ffffff;--card2:#edf0f9;--bdr:#dde2ef;--bdr2:#c8d0e4;--t1:#111827;--t2:#4b5772;--t3:#9aa3b8;--green:#00a96e;--red:#e0304f;--blue:#2e6de0;--amber:#c97d06;--purple:#7c63d4}
+.light ::-webkit-scrollbar-thumb{background:var(--bdr2)}
+/* price roll animation */
+@keyframes tickUp{from{transform:translateY(55%);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes tickDn{from{transform:translateY(-55%);opacity:0}to{transform:translateY(0);opacity:1}}
+.p-up{animation:tickUp .22s cubic-bezier(.22,1,.36,1);display:inline-block;overflow:hidden}
+.p-dn{animation:tickDn .22s cubic-bezier(.22,1,.36,1);display:inline-block;overflow:hidden}
+/* theme toggle btn */
+#theme-btn{background:transparent;border:1px solid var(--bdr);border-radius:6px;color:var(--t2);padding:5px 9px;cursor:pointer;font-size:13px;line-height:1;transition:all .2s;flex-shrink:0}
+#theme-btn:hover{border-color:var(--bdr2);transform:rotate(20deg)}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px}
 ::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}::-webkit-scrollbar-track{background:transparent}
@@ -356,6 +366,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   <div class="hdiv"></div>
   <div id="clk">--:--:--</div>
   <div class="hdiv"></div>
+  <button id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
   <button class="hbtn" onclick="openMod()">⚙ SETTINGS</button>
 </div>
 
@@ -852,6 +863,40 @@ let newsTimer=null;
 let newsTab='live';
 let newsImpact='ALL';
 let newsSrc='ALL';
+let isDark=true;
+
+function toggleTheme(){
+  isDark=!isDark;
+  document.documentElement.classList.toggle('light',!isDark);
+  const btn=document.getElementById('theme-btn');
+  if(btn)btn.textContent=isDark?'☀':'🌙';
+  localStorage.setItem('td_theme',isDark?'dark':'light');
+  // update any open Chart.js instances
+  const chartColor=isDark?'#3d4d6e':'#c8d0e4';
+  const textColor=isDark?'#6e7fa0':'#4b5772';
+  [window.dChart,window.cmpChart].forEach(ch=>{
+    if(!ch)return;
+    ch.options.scales.x.ticks.color=textColor;
+    ch.options.scales.y.ticks.color=textColor;
+    ch.options.scales.x.grid.color=chartColor;
+    ch.options.scales.y.grid.color=chartColor;
+    ch.update('none');
+  });
+}
+
+function initTheme(){
+  const saved=localStorage.getItem('td_theme');
+  if(saved==='light'){isDark=true;toggleTheme();}
+}
+
+function setAnimPrice(el,text,dir){
+  if(!el)return;
+  el.textContent=text;
+  el.classList.remove('p-up','p-dn');
+  void el.offsetWidth;
+  if(dir>0)el.classList.add('p-up');
+  else if(dir<0)el.classList.add('p-dn');
+}
 
 // ═══ UTILS ═══
 const fmt=(n,d=2)=>{if(n==null||isNaN(n))return'—';const a=Math.abs(n);if(a>=1e12)return'$'+(n/1e12).toFixed(2)+'T';if(a>=1e9)return'$'+(n/1e9).toFixed(2)+'B';if(a>=1e6)return'$'+(n/1e6).toFixed(2)+'M';return'$'+n.toFixed(d);};
@@ -922,15 +967,17 @@ function setWSBadge(s){const p=document.getElementById('ws-pill'),d=document.get
 
 function updateLive(sym,price,dir){
   const d=quotes[sym];if(!d)return;
-  const pEl=document.getElementById('wlp-'+sym);if(pEl){pEl.textContent='$'+p2(price);pEl.className=cc(d.chg);}
-  const cEl=document.getElementById('wlc-'+sym);if(cEl){cEl.textContent=sg(d.chg)+p2(Math.abs(d.chg));cEl.className=cc(d.chg);}
+  const pEl=document.getElementById('wlp-'+sym);
+  if(pEl){setAnimPrice(pEl,'$'+p2(price),dir);pEl.className=cc(d.chg);}
+  const cEl=document.getElementById('wlc-'+sym);
+  if(cEl){setAnimPrice(cEl,sg(d.chg)+p2(Math.abs(d.chg)),dir);cEl.className=cc(d.chg);}
   const pcEl=document.getElementById('wlpc-'+sym);if(pcEl)pcEl.innerHTML=`<span class="badge ${d.pct>=0?'bu':'bd'}">${sg(d.pct)}${p2(Math.abs(d.pct))}%</span>`;
-  const spEl=document.getElementById('sc-price-'+sym);if(spEl){spEl.textContent='$'+p2(price);spEl.className='scard-price '+cc(d.chg);}
+  const spEl=document.getElementById('sc-price-'+sym);
+  if(spEl){setAnimPrice(spEl,'$'+p2(price),dir);spEl.className='scard-price '+cc(d.chg);}
   const scEl=document.getElementById('sc-chg-'+sym);if(scEl)scEl.innerHTML=`<span class="badge ${d.pct>=0?'bu':'bd'}">${sg(d.pct)}${p2(Math.abs(d.pct))}%</span><span style="color:var(--t3);font-size:10px"> ${sg(d.chg)}${p2(Math.abs(d.chg))}</span>`;
   if(dir!==0){flash('wlr-'+sym,dir);flash('sc-'+sym,dir);}
-  if(sym===detailSym){const dp=document.getElementById('dp-price');if(dp){dp.textContent='$'+p2(price);dp.className='dp-price '+(d.chg>=0?'up':'dn');}}
+  if(sym===detailSym){const dp=document.getElementById('dp-price');if(dp){setAnimPrice(dp,'$'+p2(price),dir);dp.className='dp-price '+(d.chg>=0?'up':'dn');}}
   if(['SPY','QQQ'].includes(sym))renderIdxChips();
-  // Update portfolio P&L live
   if(paper.positions[sym])updatePortStats();
   updateTickerBar();
 }
@@ -2263,6 +2310,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();close
 
 // ═══ INIT ═══
 async function init(){
+  initTheme();
   if(AKEY)document.getElementById('ai-key-inp').value=AKEY;
   document.getElementById('p-date')||null;
   renderLearn();updateNewsFilt();populatePulseSel();renderNotes();
